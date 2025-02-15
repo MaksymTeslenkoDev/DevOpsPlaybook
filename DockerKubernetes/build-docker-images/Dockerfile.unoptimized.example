@@ -1,0 +1,19 @@
+FROM node:22-alpine
+
+ENV HOME=/home/app
+ENV APP_HOME=$HOME/node/
+
+WORKDIR $APP_HOME
+
+COPY . .
+
+RUN npm i
+
+RUN npm run build
+
+USER node
+
+EXPOSE 3000
+
+ENTRYPOINT ["dumb-init"]
+CMD ["node", "dist/server.js"]
