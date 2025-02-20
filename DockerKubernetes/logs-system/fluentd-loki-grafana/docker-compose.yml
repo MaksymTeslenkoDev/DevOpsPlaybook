@@ -1,0 +1,66 @@
+version: "3"
+
+services:
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    networks:
+      - my_network
+    ports:
+      - "3100:3100"
+
+  fluentd-loki:
+    build: 
+      context: ./fluentd
+      dockerfile: Dockerfile
+    container_name: fluentd-loki
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    volumes:
+      - ./fluentd/fluentd.conf:/fluentd/etc/fluent.conf
+    networks:
+      - my_network
+    depends_on:
+      - loki
+    healthcheck:
+      test: ["CMD", "sh", "-c", "pgrep -x fluentd"]
+      interval: 5s
+      retries: 5
+      start_period: 10s
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    networks:
+      - my_network
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
+      - GF_DASHBOARD_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/default-dashboard.json
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - loki
+
+  node-app:
+    build: 
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: node-app
+    networks:
+      - my_network
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: node-app.logs
+    depends_on:
+      fluentd-loki:
+        condition: service_healthy
+
+networks:
+  my_network:
+    driver: bridge
