@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scm-server-deployment 
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: scm-server
+  template:
+    metadata:
+      labels:
+        app: scm-server
+    spec:
+      volumes:
+        - name: server-config
+          configMap:
+            name: server-config
+      containers:
+        - name: scm-container 
+          image: devmaksdev/scm_web_server:latest
+          volumeMounts:
+            - name: server-config
+              mountPath: /home/app/node/config/
+          ports:
+            - containerPort: 8081
