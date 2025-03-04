@@ -1,13 +1,14 @@
-apiVersion: v1
-kind: Service
+apiVersion: v1  # Specifies the Kubernetes API version for Services
+kind: Service  # Defines a Service resource
 metadata:
-  name: scm-server-service
+  name: scm-server-service  # Name of the Service
 spec:
   selector:
-    app: scm-server
+    app: scm-server  # Matches pods with this label to route traffic to them
   ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 8081
-  type: NodePort
+    - protocol: TCP  # Specifies the protocol (TCP/UDP)
+      port: 80  # External port on the service that clients use
+      targetPort: 8081  # Internal container port where the application is running
+      nodePort: 30808  # Exposed port on the node (should be in range 30000-32767)
+  type: NodePort  # Exposes the service on each node's IP at a static port
 
