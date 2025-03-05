@@ -9,6 +9,7 @@ A **NodePort** service in Kubernetes allows external access to a cluster service
 3. By default, **Kubernetes does not guarantee round-robin load balancing**.
 4. If a request is using **HTTP Keep-Alive**, all subsequent requests will go to the same pod until the connection times out.
 
+![node-port-explanation](../images/nodeport-service-diagram.png)
 ---
 
 ## **🔍 Observed Results & Explanation**
@@ -44,7 +45,7 @@ After disabling **Keep-Alive**, each new request was directed to a **different p
 
 - **Request 1:**
     **GET http://192.168.1.9:30808/hello**
-    ```
+    ```json
     {
         "name": "scm-server-deployment-59c4797bc5-ttv7p",
         "ip": "10.1.243.227",
@@ -56,7 +57,7 @@ After disabling **Keep-Alive**, each new request was directed to a **different p
     ```
 - **Request 2:**
     **GET http://192.168.1.9:30808/hello**
-    ```
+    ```json
     {
         "name": "scm-server-deployment-59c4797bc5-j44d2",
         "ip": "10.1.243.232",

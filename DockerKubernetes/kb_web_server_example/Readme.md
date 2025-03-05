@@ -50,35 +50,59 @@ microk8s.kubectl describe configmap server-config -n scm-namespace
 ## **3️⃣ Creating a Deployment**
 The Deployment ensures that three replicas of the application are always running.
 
-### **Define the Deployment (deployment.yaml)**
+### **Define the Deployment (server_deployment.yaml)**
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: scm-server-deployment
-  namespace: scm-namespace
+apiVersion: apps/v1 # API version for Deployments
+kind: Deployment # Defines a Kubernetes Deployment
+metadata: # Name of the Deployment
+  name: scm-server-deployment 
 spec:
-  replicas: 3
+  replicas: 3 # Specifies 3 replicas (pods) for this deployment
   selector:
     matchLabels:
-      app: scm-server
+      app: scm-server # Selects pods matching this label
   template:
     metadata:
       labels:
-        app: scm-server
+        app: scm-server # Labels assigned to pods created by this deployment
     spec:
       volumes:
-        - name: server-config
+        - name: server-config # Name of the volume
           configMap:
-            name: server-config
+            name: server-config # Mounts the ConfigMap named 'server-config'
       containers:
-        - name: scm-container
-          image: devmaksdev/scm_web_server:latest
+        - name: scm-container # Container name
+          image: devmaksdev/scm_web_server:latest # Image to use
+          env:
+            - name: POD_NAME # Sets an environment variable with the pod name
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP # Sets an environment variable with the pod's internal IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: POD_UID # Sets an environment variable with the pod's UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: POD_NAMESPACE # Sets an environment variable with the pod's namespace
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          resources:
+            limits:
+              cpu: "125m"  # 1/8 of a CPU core (1000m = 1 CPU)
+              memory: "256Mi"  # 1/4 of a GiB RAM (1024Mi = 1 GiB)
+            requests:
+              cpu: "125m"  # Minimum guaranteed CPU allocation
+              memory: "256Mi"  # Minimum guaranteed memory allocation
           volumeMounts:
-            - name: server-config
-              mountPath: /home/node/app/config/
+            - name: server-config # Mounts the 'server-config' volume
+              mountPath: /home/app/node/config/ # Path inside the container
           ports:
-            - containerPort: 8081
+            - containerPort: 8081 # Exposes port 8081 in the container
+
 ```
 
 ### **Apply the Deployment**
@@ -104,20 +128,19 @@ A Service exposes the pods to external traffic.
 
 ### **Define the Service (service.yaml)**
 ```yaml
-apiVersion: v1
-kind: Service
+apiVersion: v1  # Specifies the Kubernetes API version for Services
+kind: Service  # Defines a Service resource
 metadata:
-  name: scm-server-service
-  namespace: scm-namespace
+  name: scm-server-service  # Name of the Service
 spec:
   selector:
-    app: scm-server
+    app: scm-server  # Matches pods with this label to route traffic to them
   ports:
-    - protocol: TCP
-      port: 80  # Exposed port
-      targetPort: 8081  # Container port
-      nodePort: 32263  # Externally accessible port
-  type: NodePort
+    - protocol: TCP  # Specifies the protocol (TCP/UDP)
+      port: 80  # External port on the service that clients use
+      targetPort: 8081  # Internal container port where the application is running
+      nodePort: 30808  # Exposed port on the node (should be in range 30000-32767)
+  type: NodePort  # Exposes the service on each node's IP at a static port
 ```
 
 ### **Apply the Service**
@@ -132,7 +155,7 @@ microk8s.kubectl get services -n scm-namespace
 Expected Output:
 ```
 NAME                 TYPE       CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
-scm-server-service   NodePort   10.152.183.123   <none>        80:32263/TCP   5s
+scm-server-service   NodePort   10.152.183.123   <none>        80:30808/TCP   5s
 ```
 
 ---
@@ -141,14 +164,17 @@ scm-server-service   NodePort   10.152.183.123   <none>        80:32263/TCP   5s
 ### **Send HTTP Requests**
 Use `curl` or a browser to access the service:
 ```sh
-curl http://192.168.1.9:32263/hello
+curl http://192.168.1.9:30808/hello
 ```
 Expected response:
 ```json
 {
-    "Ip": "10.0.1.1",
-    "Host": "192.168.1.9:32263",
-    "Req_Id": "req-9"
+  "name": "scm-server-deployment-59c4797bc5-ttv7p",
+  "ip": "10.1.243.227",
+  "uid": "1dc75528-fc70-4bd6-8841-8505f79ebee2",
+  "namespace": "namespace-scm-server",
+  "req_ip": "10.0.1.1",
+  "req_id": "req-4h"
 }
 ```
 
@@ -159,11 +185,11 @@ Since we have **three replicas**, Kubernetes will distribute requests across the
 
 ### **Send Multiple Requests**
 ```sh
-for i in {1..10}; do curl -s http://192.168.1.9:32263/hello | jq .Ip; done
+siege -c5 -r10 -v http://192.168.1.9:30808/hello
 ```
 
 ### **Expected Result**
-The `Ip` field in the response should change, showing different pod IPs, confirming the requests are being balanced.
+The `ip, name, uid` field in the response should change, showing different pod ips, confirming the requests are being balanced.
 
 ---
 
